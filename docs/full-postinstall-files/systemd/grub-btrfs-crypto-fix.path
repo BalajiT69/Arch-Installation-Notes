@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch grub-btrfs.cfg for changes
+
+[Path]
+PathModified=/efi/grub/grub-btrfs.cfg
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+[Unit]
+Description=Prune orphaned snapper-pacman package-list sidecar files
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/prune-snapper-pkglists.sh

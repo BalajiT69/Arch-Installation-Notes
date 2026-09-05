@@ -1,0 +1,10 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Taking snapper snapshot before upgrade transaction...
+When = PreTransaction
+NeedsTargets
+Exec = /usr/local/bin/snapper-pacman-snapshot.sh

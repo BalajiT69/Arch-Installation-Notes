@@ -1,0 +1,25 @@
+#%PAM-1.0
+
+# SPDX-License-Identifier: CC0-1.0
+# SPDX-FileCopyrightText: none
+#
+# Copied from /usr/lib/pam.d/plasmalogin and modified: the session line for
+# pam_kwallet5.so now includes kwalletd=/usr/bin/ksecretd — required on
+# Plasma 6, which moved to a new secret-service daemon (ksecretd). Without
+# this parameter, pam_kwallet5.so looks for the old kwallet5 daemon instead
+# and KWallet auto-unlock silently fails, even though everything appears
+# correctly installed. Confirmed working via: pgrep ksecretd
+
+auth        include     system-login
+-auth       optional    pam_gnome_keyring.so
+-auth       optional    pam_kwallet5.so
+
+account     include     system-login
+
+password    include     system-login
+-password   optional    pam_gnome_keyring.so    use_authtok
+
+session     optional    pam_keyinit.so          force revoke
+session     include     system-login
+-session    optional    pam_gnome_keyring.so    auto_start
+-session    optional    pam_kwallet5.so         auto_start kwalletd=/usr/bin/ksecretd

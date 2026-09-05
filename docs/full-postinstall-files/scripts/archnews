@@ -1,0 +1,190 @@
+#!/bin/bash
+# archnews: minimal Arch Linux news checker, blocks pacman upgrades on
+# unread archlinux.org news items. Lightweight bash replacement for the
+# unmaintained 'informant' AUR package.
+#
+# Tracks only the guid of the MOST RECENT item seen (the feed is always
+# newest-first) rather than a growing list of every guid ever seen.
+
+set -uo pipefail
+
+FEED_URL="https://archlinux.org/feeds/news/"
+STATE_DIR="/var/lib/archnews"
+STATE_FILE="${STATE_DIR}/last_seen"
+CONFIG_DIR="/etc/archnews"
+OVERRIDE_FILE="${CONFIG_DIR}/allow-fetch-error-once"
+
+mkdir -p "$STATE_DIR"
+
+# --- feed fetch/parse -------------------------------------------------
+
+fetch_feed() {
+    curl -fsS --max-time 15 -A "archnews/1.0" "$FEED_URL"
+}
+
+decode_entities() {
+    sed -e 's/&amp;/\&/g' -e 's/&lt;/</g' -e 's/&gt;/>/g' \
+        -e "s/&#39;/'/g" -e 's/&quot;/"/g'
+}
+
+# Emits one TSV line per item, in feed order (newest first):
+#   guid<TAB>pubDate<TAB>title<TAB>link
+# Normalizes to one-tag-per-line first (s/></>\n</g) so this works whether
+# the feed is pretty-printed or served as a single minified line.
+parse_items() {
+    local xml="$1"
+    printf '%s' "$xml" | sed -e 's/></>\n</g' | awk '
+        /<item>/ { in_item=1; guid=""; link=""; title=""; pubdate=""; next }
+        /<\/item>/ {
+            if (in_item) print guid "\t" pubdate "\t" title "\t" link
+            in_item=0; next
+        }
+        in_item && /^<guid/ {
+            line=$0; sub(/^<guid[^>]*>/,"",line); sub(/<\/guid>$/,"",line); guid=line; next
+        }
+        in_item && /^<link>/ {
+            line=$0; sub(/^<link>/,"",line); sub(/<\/link>$/,"",line); link=line; next
+        }
+        in_item && /^<title>/ {
+            line=$0; sub(/^<title>/,"",line); sub(/<\/title>$/,"",line); title=line; next
+        }
+        in_item && /^<pubDate>/ {
+            line=$0; sub(/^<pubDate>/,"",line); sub(/<\/pubDate>$/,"",line); pubdate=line; next
+        }
+    ' | decode_entities
+}
+
+# --- commands -----------------------------------------------------------
+
+cmd_check() {
+    local raw
+    if ! raw=$(fetch_feed); then
+        echo "archnews: ERROR - could not reach the Arch Linux news feed (${FEED_URL})" >&2
+
+        if [[ -f "$OVERRIDE_FILE" ]]; then
+            rm -f "$OVERRIDE_FILE"
+            echo "archnews: one-time override flag found - allowing this upgrade through despite the fetch error. Override flag has now been cleared." >&2
+            exit 0
+        fi
+
+        echo "archnews: BLOCKING upgrade for safety - this is a network/fetch failure, not confirmed unread news. If you need to upgrade right now regardless, run:" >&2
+        echo "  sudo archnews allow-once" >&2
+        echo "then retry the upgrade. This override is single-use and clears itself automatically." >&2
+        exit 1
+    fi
+
+    local stored=""
+    [[ -f "$STATE_FILE" ]] && stored=$(cat "$STATE_FILE")
+
+    local new_titles=()
+    while IFS=$'\t' read -r guid pubdate title link; do
+        [[ -n "$stored" && "$guid" == "$stored" ]] && break
+        new_titles+=("$title")
+    done < <(parse_items "$raw")
+
+    if (( ${#new_titles[@]} > 0 )); then
+        echo "archnews: ${#new_titles[@]} unread Arch news item(s):" >&2
+        for t in "${new_titles[@]}"; do
+            echo "  - $t" >&2
+        done
+        echo "Run 'archnews read' to review and clear, then re-run the upgrade." >&2
+        exit 1
+    fi
+    exit 0
+}
+
+cmd_list() {
+    local raw
+    raw=$(fetch_feed) || { echo "archnews: could not reach the news feed" >&2; exit 3; }
+    local stored=""
+    [[ -f "$STATE_FILE" ]] && stored=$(cat "$STATE_FILE")
+
+    local seen_stored=0
+    [[ -z "$stored" ]] && seen_stored=1   # nothing stored -> everything unread
+    while IFS=$'\t' read -r guid pubdate title link; do
+        if (( seen_stored )); then mark="*"; else mark=" "; fi
+        printf '[%s] %s  %s\n' "$mark" "$pubdate" "$title"
+        [[ "$guid" == "$stored" ]] && seen_stored=0
+    done < <(parse_items "$raw")
+}
+
+cmd_read() {
+    local raw
+    raw=$(fetch_feed) || { echo "archnews: could not reach the news feed" >&2; exit 3; }
+    local stored=""
+    [[ -f "$STATE_FILE" ]] && stored=$(cat "$STATE_FILE")
+
+    local new_guids=() new_titles=() new_pubdates=() new_links=()
+    local top_guid=""
+    while IFS=$'\t' read -r guid pubdate title link; do
+        [[ -z "$top_guid" ]] && top_guid="$guid"
+        [[ -n "$stored" && "$guid" == "$stored" ]] && break
+        new_guids+=("$guid"); new_titles+=("$title"); new_pubdates+=("$pubdate"); new_links+=("$link")
+    done < <(parse_items "$raw")
+
+    if (( ${#new_guids[@]} == 0 )); then
+        echo "No unread Arch news items."
+        return
+    fi
+
+    for i in "${!new_guids[@]}"; do
+        echo "======================================================================"
+        echo "${new_titles[$i]}"
+        echo "${new_pubdates[$i]}"
+        echo "${new_links[$i]}"
+        echo
+    done
+
+    read -rp "Mark all ${#new_guids[@]} item(s) as read? [y/N] " ans
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+        echo "$top_guid" > "$STATE_FILE"
+        echo "Marked as read."
+    else
+        echo "Left unread - upgrades will keep blocking until you read them."
+    fi
+}
+
+cmd_seed() {
+    local raw
+    raw=$(fetch_feed) || { echo "archnews: could not reach the news feed" >&2; exit 3; }
+    local top_guid
+    top_guid=$(parse_items "$raw" | head -1 | cut -f1)
+    if [[ -z "$top_guid" ]]; then
+        echo "archnews: could not parse any items from the feed - nothing seeded." >&2
+        exit 3
+    fi
+    echo "$top_guid" > "$STATE_FILE"
+    echo "Seeded - current top news item marked as the baseline. Anything published after it will show as unread."
+}
+
+cmd_allow_once() {
+    mkdir -p "$CONFIG_DIR"
+    : > "$OVERRIDE_FILE"
+    echo "archnews: override flag set at $OVERRIDE_FILE"
+    echo "The next upgrade will proceed even if the news feed can't be reached - but only if it's a fetch error. If news is reachable and there are unread items, this flag does NOT bypass that; you'd still need 'archnews read'."
+    echo "This flag is single-use and clears itself automatically once consumed."
+}
+
+cmd_allow_clear() {
+    if [[ -f "$OVERRIDE_FILE" ]]; then
+        rm -f "$OVERRIDE_FILE"
+        echo "archnews: override flag removed."
+    else
+        echo "archnews: no override flag was set."
+    fi
+}
+
+# --- dispatch -------------------------------------------------------------
+
+case "${1:-}" in
+    check)       cmd_check ;;
+    list)        cmd_list ;;
+    read)        cmd_read ;;
+    seed)        cmd_seed ;;
+    allow-once)  cmd_allow_once ;;
+    allow-clear) cmd_allow_clear ;;
+    *)
+        echo "usage: archnews {check|list|read|seed|allow-once|allow-clear}" >&2
+        exit 2
+        ;;
+esac

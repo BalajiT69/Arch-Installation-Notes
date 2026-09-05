@@ -1,0 +1,13 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Package
+Target = linux
+Target = linux-lts
+Target = grub
+
+[Action]
+Description = Regenerating GRUB config on /efi
+When = PostTransaction
+Exec = /usr/bin/grub-mkconfig -o /efi/grub/grub.cfg

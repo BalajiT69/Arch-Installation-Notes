@@ -1,0 +1,6 @@
+[Unit]
+Description=Inject cryptomount into grub-btrfs snapshot entries
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/grub-btrfs-crypto-fix.sh

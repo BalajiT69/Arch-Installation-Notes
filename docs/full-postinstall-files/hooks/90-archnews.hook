@@ -1,0 +1,10 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Checking for unread Arch Linux news...
+When = PreTransaction
+AbortOnFail
+Exec = /usr/local/bin/archnews check

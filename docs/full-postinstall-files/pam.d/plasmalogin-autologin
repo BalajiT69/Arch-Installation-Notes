@@ -1,0 +1,26 @@
+#%PAM-1.0
+
+# SPDX-License-Identifier: CC0-1.0
+# SPDX-FileCopyrightText: none
+#
+# Copied from /usr/lib/pam.d/plasmalogin-autologin and modified: same
+# kwalletd=/usr/bin/ksecretd fix as plasmalogin, and MORE IMPORTANT if
+# autologin is enabled — this is the PAM stack that actually runs on every
+# boot in that case, not plain "plasmalogin". Without this fix, KWallet
+# auto-unlock never gets a password to work with anyway, since autologin
+# never types one — see the note in this project's guide about also
+# blanking the "Login" wallet's own password via kwalletmanager, which is
+# required in addition to this fix when autologin is in use.
+
+auth        required    pam_env.so
+auth        required    pam_faillock.so preauth
+auth        required    pam_shells.so
+auth        required    pam_nologin.so
+auth        required    pam_permit.so
+-auth       optional    pam_gnome_keyring.so
+-auth       optional    pam_kwallet5.so
+account     include     system-local-login
+password    include     system-local-login
+session     include     system-local-login
+-session    optional    pam_gnome_keyring.so auto_start
+-session    optional    pam_kwallet5.so auto_start kwalletd=/usr/bin/ksecretd
