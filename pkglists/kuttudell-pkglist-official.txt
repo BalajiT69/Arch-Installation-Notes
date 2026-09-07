@@ -70,6 +70,7 @@ libksysguard
 libplasma
 libpulse
 libva-intel-driver
+libva-utils
 linux
 linux-firmware
 linux-lts
@@ -82,6 +83,7 @@ networkmanager
 noto-fonts
 noto-fonts-emoji
 ntfs-3g
+nvtop
 ocean-sound-theme
 okular
 os-prober
@@ -144,7 +146,6 @@ vulkan-intel
 vulkan-nouveau
 vulkan-radeon
 wacomtablet
-webapp-manager
 wget
 wireplumber
 wpa_supplicant
