@@ -1,0 +1,5 @@
+brave-bin
+claude-desktop
+onlyoffice-bin
+yay
+yay-debug
