@@ -23,7 +23,6 @@ efibootmgr
 eza
 fastfetch
 ffmpegthumbs
-firefox
 flatpak-kcm
 git
 grub
@@ -37,6 +36,7 @@ htop
 inotify-tools
 intel-media-driver
 intel-ucode
+inter-font
 kactivitymanagerd
 kate
 kde-cli-tools
@@ -76,6 +76,7 @@ linux-firmware
 linux-lts
 milou
 mkinitcpio
+mpv
 mtools
 nano
 network-manager-applet
@@ -97,7 +98,6 @@ pipewire-jack
 pipewire-pulse
 plasma-activities
 plasma-activities-stats
-plasma-bigscreen
 plasma-browser-integration
 plasma-desktop
 plasma-disks
