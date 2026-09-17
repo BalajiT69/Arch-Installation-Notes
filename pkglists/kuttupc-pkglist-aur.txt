@@ -1,5 +1,4 @@
-brave-bin
-claude-desktop
+fladder-bin
 onlyoffice-bin
 yay
 yay-debug
