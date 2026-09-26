@@ -47,8 +47,14 @@ system-specific values like UUIDs) and are given as exact commands instead.
 - **`snapper-pacman-snapshot.sh`** — Takes a tagged, pre-upgrade Snapper snapshot with a full
   package-list sidecar file, triggered by `95-snapshot.hook` below.
 
-- **`prune-snapper-pkglists.sh`** — Deletes orphaned sidecar `.pkglist` files once Snapper's own
-  retention policy has removed their matching snapshot. Run monthly by the timer below.
+- **`snapper-pacman-snapshot-log.sh`** — Captures the transaction's own `pacman.log` slice into
+  that same sidecar (as `<snapshot-number>.pacmanlog`), triggered by `96-snapshot-log.hook` below.
+  Correlates to the right snapshot number by finding the most recently created `.pkglist` file —
+  reliable because pacman only ever runs one transaction at a time.
+
+- **`prune-snapper-pkglists.sh`** — Deletes orphaned sidecar `.pkglist` *and* `.pacmanlog` files
+  once Snapper's own retention policy has removed their matching snapshot. Run monthly by the timer
+  below.
 
 ### `hooks/`
 
@@ -57,6 +63,9 @@ system-specific values like UUIDs) and are given as exact commands instead.
   failing does *not* stop the transaction on its own.
 - **`95-snapshot.hook`** — Fires `snapper-pacman-snapshot.sh` before every upgrade. Runs *after*
   `90-` deliberately — no point snapshotting a transaction that's about to be blocked anyway.
+- **`96-snapshot-log.hook`** — Fires `snapper-pacman-snapshot-log.sh` *after* every upgrade —
+  deliberately the last hook in the whole sequence, so it captures the outcome of everything else
+  too (the GRUB regeneration, the cache prune), not just the raw package-upgrade lines.
 - **`94-grub-reinstall.hook`** — Re-runs `grub-install` whenever the `grub` package itself updates.
   **Edit `--boot-directory=` inside this file** to match where your `grub.cfg` actually lives.
 - **`95-grub-efi-cfg.hook`** — Regenerates `grub.cfg` on any kernel or `grub` change. **Edit the
@@ -95,6 +104,7 @@ sudo cp pam.d/* /etc/pam.d/          # only if using Plasma Login Manager + KWal
 # 2. Fix permissions
 sudo chmod +x /usr/local/bin/archnews \
               /usr/local/bin/snapper-pacman-snapshot.sh \
+              /usr/local/bin/snapper-pacman-snapshot-log.sh \
               /usr/local/bin/prune-snapper-pkglists.sh \
               /usr/local/bin/grub-btrfs-crypto-fix.sh \
               /usr/local/bin/setup-luks-keyfile-and-pbkdf.sh \
