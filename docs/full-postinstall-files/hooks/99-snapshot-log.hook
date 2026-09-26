@@ -1,0 +1,9 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Capturing transaction log alongside the snapshot...
+When = PostTransaction
+Exec = /usr/local/bin/snapper-pacman-snapshot-log.sh

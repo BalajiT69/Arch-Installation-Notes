@@ -4,6 +4,6 @@ Type = Package
 Target = grub
 
 [Action]
-Description = Reinstalling GRUB to /efi after a grub package update
+Description = Reinstalling GRUB to /efi and disabling 31_efi_bootnext after a grub package update
 When = PostTransaction
-Exec = /usr/bin/grub-install --target=x86_64-efi --efi-directory=/efi --boot-directory=/efi --bootloader-id=GRUB --recheck
+Exec = /bin/sh -c "grub-install --target=x86_64-efi --efi-directory=/efi --boot-directory=/efi --bootloader-id=GRUB --recheck && chmod -x /etc/grub.d/31_efi_bootnext"
